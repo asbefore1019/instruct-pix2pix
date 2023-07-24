@@ -1,3 +1,14 @@
+# 这段代码是一个完整的脚本，用于计算图像编辑模型的性能指标并生成相应的图表：
+# 导入必要的库和模块。
+# 定义了一个CFGDenoiser类，它是一个包装器，用于对模型进行配置，并在前向传播过程中应用相应的配置。
+# 定义了一个load_model_from_config函数，用于从配置文件和检查点文件中加载模型。
+# 定义了一个ImageEditor类，它是一个图像编辑器模型的封装类。它加载了配置文件和检查点文件，并提供了一个前向传播方法，用于对图像进行编辑。
+# 定义了一个compute_metrics函数，用于计算模型的性能指标。它接受一些参数，如配置文件路径、模型路径、数据集路径等，并使用ImageEditor类和ClipSimilarity类来计算指标。
+# 定义了一个plot_metrics函数，用于绘制性能指标的图表。
+# 定义了一个main函数，它是脚本的主要入口点。它解析命令行参数，并调用compute_metrics和plot_metrics函数来计算指标并生成图表。
+# 最后，通过调用main函数来执行整个脚本。
+
+
 from __future__ import annotations
 
 import math
@@ -31,6 +42,7 @@ sys.path.append("./stable_diffusion")
 from ldm.util import instantiate_from_config
 
 
+# 定义了一个CFGDenoiser类，它是一个包装器，用于对模型进行配置，并在前向传播过程中应用相应的配置。
 class CFGDenoiser(nn.Module):
     def __init__(self, model):
         super().__init__()
@@ -47,6 +59,7 @@ class CFGDenoiser(nn.Module):
         return out_uncond + text_cfg_scale * (out_cond - out_img_cond) + image_cfg_scale * (out_img_cond - out_uncond)
 
 
+# 定义了一个load_model_from_config函数，用于从配置文件和检查点文件中加载模型。
 def load_model_from_config(config, ckpt, vae_ckpt=None, verbose=False):
     print(f"Loading model from {ckpt}")
     pl_sd = torch.load(ckpt, map_location="cpu")
@@ -70,6 +83,7 @@ def load_model_from_config(config, ckpt, vae_ckpt=None, verbose=False):
         print(u)
     return model
 
+# 定义ImageEditor类，它是一个图像编辑器模型的封装类。它加载了配置文件和检查点文件，并提供了一个前向传播方法，用于对图像进行编辑。
 class ImageEditor(nn.Module):
     def __init__(self, config, ckpt, vae_ckpt=None):
         super().__init__()
@@ -80,7 +94,12 @@ class ImageEditor(nn.Module):
         self.model_wrap = K.external.CompVisDenoiser(self.model)
         self.model_wrap_cfg = CFGDenoiser(self.model_wrap)
         self.null_token = self.model.get_learned_conditioning([""])
+        # 在初始化方法中，该类加载了一个配置文件，并使用该配置文件创建了一个模型。模型的检查点文件路径由ckpt参数指定，可选的VAE模型的检查点文件路径由vae_ckpt参数指定。
+        # 然后，将模型设置为评估模式，并将其移动到GPU上。接下来，创建了一个K.external.CompVisDenoiser对象，将模型包装在其中，以进行图像去噪。
+        # 最后，初始化了一个特殊的标记null_token，用于表示一个空的条件。
 
+    # forward方法用于执行图像编辑操作。它接受一个image参数，表示输入的图像。
+    # edit参数是一个字符串，表示要对图像进行的编辑操作。scale_txt和scale_img参数分别用于控制文本和图像的缩放比例。steps参数表示采样步数。
     def forward(
         self,
         image: torch.Tensor,
@@ -112,8 +131,13 @@ class ImageEditor(nn.Module):
             x = K.sampling.sample_euler_ancestral(self.model_wrap_cfg, x, sigmas, extra_args=extra_args)
             x = self.model.decode_first_stage(x)[0]
             return x
+"""在forward方法中，首先进行一些断言，确保输入的图像满足要求。然后，使用torch.no_grad()和autocast("cuda")上下文管理器，禁用梯度计算并将计算操作移动到GPU上。
+接下来，根据编辑指令和图像，构建条件和非条件变量。然后，设置一些额外的参数，如无条件变量、条件变量、图像配置缩放比例和文本配置缩放比例。
+接着，通过调用self.model_wrap.get_sigmas(steps)获取采样步数对应的标准差。然后，使用高斯分布采样生成一个与条件变量相同形状的随机张量x，并乘以第一个标准差。
+接着，使用K.sampling.sample_euler_ancestral方法进行采样，得到修改后的图像。最后，将修改后的图像返回。"""
 
 
+# 定义compute_metrics函数用于计算模型的性能指标。它接受参数，如配置文件路径、模型路径、数据集路径等，并使用ImageEditor类和ClipSimilarity类来计算指标
 def compute_metrics(config,
                     model_path, 
                     vae_ckpt,
@@ -183,6 +207,7 @@ def compute_metrics(config,
                 f.write(f"{json.dumps(dict(sim_0=sim_0_avg, sim_1=sim_1_avg, sim_direction=sim_direction_avg, sim_image=sim_image_avg, num_samples=num_samples, split=split, scale_txt=scale_txt, scale_img=scale_img, steps=steps, res=res, seed=seed))}\n")
     return outpath
 
+# 定义了一个plot_metrics函数，用于绘制性能指标的图表。
 def plot_metrics(metrics_file, output_path):
     
     with open(metrics_file, 'r') as f:
