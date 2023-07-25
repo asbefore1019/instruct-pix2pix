@@ -227,6 +227,7 @@ def plot_metrics(metrics_file, output_path):
 
     plt.savefig(Path(output_path) / Path("plot.pdf"), bbox_inches="tight")
 
+# main函数:解析命令行参数，并调用compute_metrics和plot_metrics函数来计算指标并生成图表
 def main():
     parser = ArgumentParser()
     parser.add_argument("--resolution", default=512, type=int)
