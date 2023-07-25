@@ -57,6 +57,7 @@ example_instructions = [
 ]
 
 
+# `CFGDenoiser`类继承自`nn.Module`,用于对生成的图像进行去噪处理
 class CFGDenoiser(nn.Module):
     def __init__(self, model):
         super().__init__()
@@ -73,6 +74,7 @@ class CFGDenoiser(nn.Module):
         return out_uncond + text_cfg_scale * (out_cond - out_img_cond) + image_cfg_scale * (out_img_cond - out_uncond)
 
 
+# 从配置文件中加载模型
 def load_model_from_config(config, ckpt, vae_ckpt=None, verbose=False):
     print(f"Loading model from {ckpt}")
     pl_sd = torch.load(ckpt, map_location="cpu")
@@ -97,6 +99,8 @@ def load_model_from_config(config, ckpt, vae_ckpt=None, verbose=False):
     return model
 
 
+# 首先解析命令行参数，加载配置文件并创建模型。然后将模型设置为评估模式，并加载用于图像去噪的包装模型
+# 接着定义了一个空的条件标记null_token和一个示例图像example_image
 def main():
     parser = ArgumentParser()
     parser.add_argument("--resolution", default=512, type=int)
@@ -132,7 +136,10 @@ def main():
             text_cfg_scale,
             image_cfg_scale,
         )
+    # 根据输入的参数生成修改后的图像。该函数会随机选择一个示例指令，并调用generate函数生成修改后的图像。
 
+    # `generate`函数用于生成修改后的图像。它接受输入图像、编辑指令和其他参数，并返回修改后的图像。
+    # 在函数内部，首先对输入图像进行预处理，然后根据指令构建条件和非条件变量。接下来，根据指定的步数生成修改后的图像
     def generate(
         input_image: Image.Image,
         instruction: str,
@@ -189,6 +196,17 @@ def main():
     def reset():
         return [0, "Randomize Seed", 1371, "Fix CFG", 7.5, 1.5, None]
 
+    # 使用gradio库创建一个交互界面，并将相关的函数和参数与界面上的组件进行绑定
+   
+    # 这段代码是一个图形用户界面（GUI），用于图像生成和编辑。它使用了一个名为gr的库来创建各种GUI元素，如按钮、图像和文本框。以下是代码的主要结构和功能：
+    # 创建一个GUI块（gr.Blocks）来容纳所有的GUI元素。
+    # 创建一个包含按钮和文本框的行（gr.Row）作为顶部的控制面板。
+    # 创建一个包含输入图像和编辑后图像的行（gr.Row）用于显示图像。
+    # 创建一个包含步数、种子、配置参数等控件的行（gr.Row）用于设置生成和编辑的参数。
+    # 使用gr.Markdown显示帮助文本。
+    # 为按钮添加点击事件处理函数，用于加载示例图像、生成图像和重置参数。
+    # 最后，通过调用demo.queue和demo.launch方法，将GUI块添加到队列中并启动GUI。
+   
     with gr.Blocks(css="footer {visibility: hidden}") as demo:
         with gr.Row():
             with gr.Column(scale=1, min_width=100):
@@ -266,3 +284,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# 这段代码是一个主函数`main()`，用于创建一个交互式的图形界面，允许用户输入图像和编辑指令，并生成修改后的图像。
+
+# 首先，导入了一些必要的库和模块。然后定义了一些帮助文本和示例指令列表。
+# 接下来，定义了一个名为`CFGDenoiser`的类，继承自`nn.Module`。该类用于对生成的图像进行去噪处理。
+# 然后定义了一个`load_model_from_config`函数，用于从配置文件中加载模型。
+# 接下来是主函数`main()`。在该函数中，首先解析命令行参数，加载配置文件并创建模型。然后将模型设置为评估模式，并加载用于图像去噪的包装模型。接着定义了一个空的条件标记`null_token`和一个示例图像`example_image`。
+# 在`load_example`函数中，根据输入的参数生成修改后的图像。该函数会随机选择一个示例指令，并调用`generate`函数生成修改后的图像。
+# `generate`函数用于生成修改后的图像。它接受输入图像、编辑指令和其他参数，并返回修改后的图像。在函数内部，首先对输入图像进行预处理，然后根据指令构建条件和非条件变量。接下来，根据指定的步数生成修改后的图像
+# 最后，使用gradio库创建一个交互界面，并将相关的函数和参数与界面上的组件进行绑定
