@@ -15,12 +15,14 @@ def main(openai_model: str):
     captions = dataset[np.random.permutation(len(dataset))]["TEXT"]
     index = 0
 
+    # 在数据集中随机选择一个图像描述
     def click_random():
         nonlocal index
         output = captions[index]
         index = (index + 1) % len(captions)
         return output
 
+    # 接受一个输入图像描述，并使用generate函数生成编辑指令
     def click_generate(input: str):
         if input == "":
             raise gr.Error("Input caption is missing!")
@@ -53,3 +55,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     openai.api_key = args.openai_api_key
     main(args.openai_model)
+
+
+# 这是一个使用gradio库构建的交互式应用程序，用于编辑图像描述。应用程序使用OpenAI的GPT-3模型生成编辑指令，并将其应用于给定的图像描述。下面是主要的代码逻辑：
+#     导入所需的库和模块。
+#     定义main函数，它接受一个openai_model参数。
+#     加载数据集，这里使用了名为ChristophSchuhmann/improved_aesthetics_6.5plus的数据集。
+#     定义click_random函数，用于在数据集中随机选择一个图像描述。
+#     定义click_generate函数，它接受一个输入图像描述，并使用generate函数生成编辑指令。
+#     使用gradio库创建一个交互式应用程序。
+#     定义输入和输出文本框。
+#     定义清空、随机选择和生成指令的按钮，并分别指定它们的点击事件。
+#     解析命令行参数，包括openai-api-key和openai-model。
+#     设置OpenAI的API密钥。
+#     调用main函数，并传入openai-model参数。
+# 请注意，这个脚本中使用的generate函数是从dataset_creation.generate_txt_dataset模块中导入的
