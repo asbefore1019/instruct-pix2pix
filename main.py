@@ -27,6 +27,8 @@ from ldm.data.base import Txt2ImgIterableBaseDataset
 from ldm.util import instantiate_from_config
 
 
+# 创建一个参数解析器对象。该解析器用于解析命令行参数，并将其转换为相应的Python对象。在这个函数中，我们定义了一个内部函数str2bool，用于将字符串转换为布尔值。
+
 def get_parser(**parser_kwargs):
     def str2bool(v):
         if isinstance(v, bool):
@@ -48,6 +50,8 @@ def get_parser(**parser_kwargs):
         nargs="?",
         help="postfix for logdir",
     )
+# 创建了一个argparse.ArgumentParser对象，并使用add_argument方法添加了一个名为--name（或-n）的参数。
+# 该参数接受一个字符串类型的值，并具有一些额外的选项，如const、default和nargs。这些选项用于指定参数的默认值、接受的值的数量以及帮助文档中的描述。
     parser.add_argument(
         "-r",
         "--resume",
@@ -132,10 +136,16 @@ def nondefault_trainer_args(opt):
     parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args([])
     return sorted(k for k in vars(args) if getattr(opt, k) != getattr(args, k))
+# 这段代码定义了一个函数nondefault_trainer_args(opt)，它接受一个opt参数，并返回一个列表，其中包含与默认训练器参数不同的参数名称。
+# 函数首先创建一个argparse.ArgumentParser对象，并将其用于Trainer.add_argparse_args方法。
+# 然后，它创建一个空的args对象，使用parser.parse_args([])方法解析命令行参数并将结果赋值给args。
+# 接下来，函数使用列表推导式来生成一个包含与opt对象中的属性值不同的属性名称的列表。这是通过比较opt对象和args对象中的相应属性值来完成的。
+# 最后，函数返回按字母顺序排序的属性名称列表。
 
 
 class WrappedDataset(Dataset):
-    """Wraps an arbitrary object with __len__ and __getitem__ into a pytorch dataset"""
+    """Wraps an arbitrary object with __len__ and __getitem__ into a pytorch dataset
+    将任意对象包装成一个PyTorch数据集，以便在训练和评估模型时使用"""
 
     def __init__(self, dataset):
         self.data = dataset
@@ -143,6 +153,7 @@ class WrappedDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+    # 返回self.data中对应索引的样本
     def __getitem__(self, idx):
         return self.data[idx]
 
@@ -161,7 +172,20 @@ def worker_init_fn(_):
         return np.random.seed(np.random.get_state()[1][current_id] + worker_id)
     else:
         return np.random.seed(np.random.get_state()[1][0] + worker_id)
+        
+"""这段代码是一个用于初始化PyTorch数据加载器的函数`worker_init_fn`。它在每个工作进程中被调用，用于设置每个工作进程的随机种子和数据集的划分。
+函数首先获取当前工作进程的信息，包括数据集和工作进程的ID。然后，它检查数据集是否是`Txt2ImgIterableBaseDataset`的一个实例。如果是，它将根据工作进程的ID划分数据集，并设置随机种子以确保每个工作进程使用不同的随机数序列。这是为了确保每个工作进程在处理数据时使用不同的随机数。
+如果数据集不是`Txt2ImgIterableBaseDataset`的实例，它将使用相同的随机种子设置所有工作进程的随机数序列。
+这个函数的目的是确保在多进程数据加载过程中，每个工作进程使用不同的随机数序列，以增加数据的随机性和多样性。"""
 
+
+# 这是一个继承自`pl.LightningDataModule`的数据模块类`DataModuleFromConfig`。它用于配置和管理训练、验证、测试和预测数据集的加载器。
+
+# 在`__init__`方法中，它接受一些参数，包括`batch_size`（批量大小），`train`、`validation`、`test`和`predict`（数据集配置），`wrap`（是否使用`WrappedDataset`包装数据集），`num_workers`（工作进程数），`shuffle_test_loader`（是否在测试数据加载器中打乱数据顺序），`use_worker_init_fn`（是否使用`worker_init_fn`函数初始化工作进程），`shuffle_val_dataloader`（是否在验证数据加载器中打乱数据顺序）。
+# `prepare_data`方法用于准备数据，它遍历数据集配置并调用`instantiate_from_config`函数来实例化数据集。
+# `setup`方法用于设置数据模块，它根据数据集配置实例化数据集，并根据`wrap`参数决定是否将数据集包装成`WrappedDataset`。
+# `_train_dataloader`、`_val_dataloader`、`_test_dataloader`和`_predict_dataloader`方法分别返回训练、验证、测试和预测数据加载器。这些加载器使用`DataLoader`来加载数据集，并根据参数设置进行配置，如批量大小、工作进程数、是否打乱数据顺序等。
+# 总的来说，`DataModuleFromConfig`类提供了一个方便的方式来配置和管理数据加载器，使得训练、验证、测试和预测数据集的加载变得更加简单和灵活。
 
 class DataModuleFromConfig(pl.LightningDataModule):
     def __init__(self, batch_size, train=None, validation=None, test=None, predict=None,
@@ -241,6 +265,12 @@ class DataModuleFromConfig(pl.LightningDataModule):
                           num_workers=self.num_workers, worker_init_fn=init_fn, persistent_workers=True)
 
 
+# 这是一个名为`SetupCallback`的自定义回调类，它继承自`Callback`类。这个回调类在训练过程中的不同阶段执行一些操作。
+# 在`__init__`方法中，该类接收一些参数，包括`resume`、`now`、`logdir`、`ckptdir`、`cfgdir`、`config`和`lightning_config`等。
+# 在`on_keyboard_interrupt`方法中，如果`trainer.global_rank`为0，它会打印一条消息并保存最后一个检查点。检查点的路径是根据`self.ckptdir`和"last.ckpt"拼接而成的。
+# 在`on_pretrain_routine_start`方法中，如果`trainer.global_rank`为0，它会创建日志目录和配置文件目录。如果`self.lightning_config`中包含"callbacks"并且其中包含"metrics_over_trainsteps_checkpoint"，它会创建一个名为"trainstep_checkpoints"的目录。然后，它会打印项目配置和Lightning配置，并将它们保存到相应的配置文件中。
+# 这个回调类的作用是在训练过程中执行一些设置和保存操作，以便在训练过程中出现中断时能够恢复训练。
+
 class SetupCallback(Callback):
     def __init__(self, resume, now, logdir, ckptdir, cfgdir, config, lightning_config):
         super().__init__()
@@ -284,6 +314,19 @@ def get_world_size():
     if not dist.is_initialized():
         return 1
     return dist.get_world_size()
+
+# 这段代码实现了一个名为`all_gather`的函数，用于在分布式训练中收集来自各个进程的数据。它接受一个可pickle的对象作为输入，并返回一个列表，其中包含从每个进程中收集到的数据。
+
+# 函数的实现逻辑如下：
+# 1. 首先，通过调用`get_world_size()`函数获取当前的进程数量，如果只有一个进程，则直接返回输入数据的列表。
+# 2. 如果有多个进程，则将输入数据序列化为一个Tensor对象。如果输入数据已经是一个Tensor对象，则将其展平为一维Tensor。
+# 3. 接下来，获取每个进程的Tensor大小。首先创建一个本地大小的Tensor，然后使用`dist.all_gather`函数将各个进程的大小信息收集到一个列表中。
+# 4. 确定最大的Tensor大小，用于创建接收数据的Tensor列表。如果本地大小不等于最大大小，则使用padding将本地Tensor填充到最大大小。
+# 5. 使用`dist.all_gather`函数将各个进程的Tensor收集到Tensor列表中。
+# 6. 最后，根据各个进程的大小信息，将收集到的Tensor转换为相应的数据对象。如果输入数据不是Tensor，则将Tensor转换为numpy数组，并使用pickle反序列化为数据对象。如果输入数据是Tensor，则根据原始大小信息将Tensor重新调整为原始形状。
+# 7. 返回收集到的数据列表。
+
+# 这个函数的作用是在分布式训练中收集来自各个进程的数据，以便进行后续的处理和分析。它可以用于收集模型参数、梯度等数据，以便进行全局同步或其他操作。
 
 def all_gather(data):
     """
@@ -347,6 +390,16 @@ def all_gather(data):
         return resized_list
     else:
         return data_list
+
+# 这是一个名为`ImageLogger`的回调类，用于在训练过程中记录图像和相关信息。该类继承自`Callback`类，并重写了`on_train_batch_end`和`on_validation_batch_end`方法。
+
+# `ImageLogger`类的构造函数接受多个参数，包括`batch_frequency`（记录图像的频率）、`max_images`（每个批次记录的最大图像数）、`clamp`（是否对图像进行限幅）、`increase_log_steps`（是否增加记录步骤的数量）、`rescale`（是否对图像进行重新缩放）、`disabled`（是否禁用图像记录）、`log_on_batch_idx`（是否在每个批次索引上记录图像）、`log_first_step`（是否在第一步记录图像）和`log_images_kwargs`（用于记录图像的其他参数）。
+
+# `ImageLogger`类还定义了私有方法`_testtube`，用于在TestTubeLogger中记录图像。该方法接受`pl_module`（PyTorch-Lightning模块）、`images`（图像数据）、`batch_idx`（批次索引）和`split`（数据集划分）作为参数，在TestTubeLogger中添加图像。
+# `ImageLogger`类还定义了私有方法`log_local`，用于在本地存储图像和相关信息。该方法接受`save_dir`（保存目录）、`split`（数据集划分）、`images`（图像数据）、`prompts`（提示信息）、`global_step`（全局步骤）、`current_epoch`（当前轮次）和`batch_idx`（批次索引）作为参数，将图像和相关信息保存到本地文件。
+# `ImageLogger`类还定义了方法`log_img`，用于记录图像。该方法接受`pl_module`（PyTorch-Lightning模块）、`batch`（批次数据）、`batch_idx`（批次索引）和`split`（数据集划分，默认为"train"）作为参数。在满足一定条件时，该方法会调用`pl_module`的`log_images`方法获取图像数据，并调用`log_local`方法将图像和相关信息保存到本地文件。然后，根据不同的日志记录器类型，调用相应的方法将图像添加到日志中。
+# `ImageLogger`类还定义了方法`check_frequency`，用于检查是否满足记录图像的频率。该方法接受`check_idx`（检查索引）作为参数，根据`batch_freq`和`log_steps`的设置判断是否满足记录图像的条件。
+# 最后，`ImageLogger`类重写了`on_train_batch_end`和`on_validation_batch_end`方法，在训练和验证过程中调用`log_img`方法记录图像。如果模块具有`calibrate_grad_norm`属性，并且满足一定条件，还会调用`log_gradients`方法记录梯度信息。
 
 class ImageLogger(Callback):
     def __init__(self, batch_frequency, max_images, clamp=True, increase_log_steps=True,
@@ -467,6 +520,11 @@ class ImageLogger(Callback):
                 self.log_gradients(trainer, pl_module, batch_idx=batch_idx)
 
 
+# 这是一个名为`CUDACallback`的自定义回调类，它继承自PyTorch Lightning的`Callback`类。这个类主要用于在训练过程中跟踪GPU的内存使用情况和训练时间，并在每个epoch结束时输出相关信息。
+# 在`on_train_epoch_start`方法中，它重置了GPU内存使用的峰值计数器，并记录了当前时间作为开始时间。
+# 在`on_train_epoch_end`方法中，它首先同步GPU，然后计算出GPU内存使用的峰值（以兆字节为单位）和epoch的训练时间。然后，它尝试使用`trainer.training_type_plugin.reduce`方法来在分布式训练中对这些值进行归约操作。最后，它使用`rank_zero_info`函数将平均epoch时间和平均峰值内存打印出来。
+# 需要注意的是，这个类依赖于一些其他的函数和对象，比如`torch.cuda.reset_peak_memory_stats`、`torch.cuda.synchronize`、`torch.cuda.max_memory_allocated`和`rank_zero_info`。你需要确保这些函数和对象在代码中已经定义或导入。
+
 class CUDACallback(Callback):
     # see https://github.com/SeanNaren/minGPT/blob/master/mingpt/callback.py
     def on_train_epoch_start(self, trainer, pl_module):
@@ -488,6 +546,12 @@ class CUDACallback(Callback):
             rank_zero_info(f"Average Peak memory {max_memory:.2f}MiB")
         except AttributeError:
             pass
+
+# 这段代码是一个训练脚本的主要部分。它首先解析命令行参数，并根据参数设置日志目录和检查点路径。然后，它加载配置文件并合并配置。
+# 接下来，它根据配置实例化模型、训练器和回调函数。然后，它准备数据并进行训练或测试。最后，它打印出训练过程中的性能分析摘要。
+# 这段代码使用了一些自定义的类和函数，例如get_parser()函数用于创建参数解析器，instantiate_from_config()函数用于根据配置实例化对象，
+# SetupCallback类用于设置日志目录和检查点路径，ImageLogger类用于记录图像日志，LearningRateMonitor类用于记录学习率日志，CUDACallback类用于跟踪GPU的内存使用情况和训练时间。
+# 整个训练过程中，还使用了一些PyTorch Lightning的功能，例如Trainer类用于管理训练过程，DataModule类用于准备和加载数据，ModelCheckpoint类用于保存模型检查点，WandbLogger类和TestTubeLogger类用于记录日志。
 
 
 if __name__ == "__main__":
